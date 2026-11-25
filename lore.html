@@ -304,6 +304,8 @@ addEventListener("resize", () => renderTimeline());
 
 /* ---------- Claude ---------- */
 const RULES = "Write in warm, vivid, plain English for a curious adult. Use only short paragraphs, optional lines starting with '## ' as headings, and **bold** for a few names. Never invent sources, dates or quotes; say 'in some versions' where tellings differ and say when something is uncertain. If the legend belongs to a living Indigenous culture or faith, retell only widely published, general elements respectfully, and do not describe secret or restricted knowledge.";
+const CUES = "This telling will also be performed aloud by a voice actor, so add short delivery cues in square brackets just before the words they colour, such as [whispering], [slowly], [low voice], [fearful], [excited] or [pause]. Use one every two to four sentences, never in headings, and never more than three words inside a cue.";
+const stripCues = t => String(t || "").replace(/\[[^\]\n]{1,40}\]\s*/g, "");
 const STYLES = {
   spooky: "Tell it as a spooky campfire story, building suspense, but stay faithful to the traditional versions.",
   child: "Tell it gently for children aged 7 to 10, exciting but not frightening, in simple words.",
@@ -311,6 +313,7 @@ const STYLES = {
   scholar: "Give the scholar's version: the main traditional versions, compared clearly."
 };
 function md(target, text){
+  text = stripCues(text);
   const frag = document.createDocumentFragment(); let ul = null;
   const inline = (n, s) => s.split(/\*\*/).forEach((p, i) => { if (p) n.append(i % 2 ? el("strong", null, p) : document.createTextNode(p)); });
   for (const raw of text.split("\n")) {
@@ -345,13 +348,15 @@ async function run(prompt, out, busyText){
   } catch (e) { cancelAnimationFrame(raf); if (e && e.text && e.code !== "refused") md(out, e.text); $("status").textContent = errCopy(e); }
   finally { if (S.ctl === ctl) S.ctl = null; $("stopBtn").hidden = true; }
 }
-$("tellBtn").onclick = () => { const d = S.sel; if (!d) return; run(`Retell the legend of "${d.name}" from ${d.culture} tradition (${d.where}), first written down ${fmtYear(d.first)} in ${d.firstText}. Basic outline: ${d.summary}\n\n${STYLES[$("style").value]} About 350 to 550 words. End with one line in italics-free plain text saying which old source or region the telling follows.\n\n${RULES}`, $("tale"), "The storyteller clears their throat…"); };
+$("tellBtn").onclick = () => { const d = S.sel; if (!d) return; run(`Retell the legend of "${d.name}" from ${d.culture} tradition (${d.where}), first written down ${fmtYear(d.first)} in ${d.firstText}. Basic outline: ${d.summary}\n\n${STYLES[$("style").value]} About 350 to 550 words. End with one line in italics-free plain text saying which old source or region the telling follows.\n\n${CUES}\n\n${RULES}`, $("tale"), "The storyteller clears their throat…"); };
 $("originBtn").onclick = () => { const d = S.sel; if (!d) return; run(`Explain where the legend of "${d.name}" (${d.culture}, ${d.where}) really came from: the earliest records (the atlas says ${d.firstText}), the real history, animals, fears, places or events that may lie behind it, and how the story spread and changed over time. 250 to 450 words with 3 or 4 short '## ' headings.\n\n${RULES}`, $("tale"), "Searching the old chronicles…"); };
 $("askBtn").onclick = () => { const q = $("askQ").value.trim(); if (!q) { $("status").textContent = "Type a question for the storyteller."; return; } run(`A visitor to an interactive world map of folklore asks: "${q}"\n\nAnswer as a knowledgeable, friendly storyteller and folklorist. Name real, documented legends, with the place and roughly when each was first recorded. 250 to 500 words.\n\n${RULES}`, $("tale"), "The storyteller is thinking…"); $("story").scrollIntoView({behavior:"smooth", block:"start"}); };
 $("stopBtn").onclick = () => { if (S.ctl) S.ctl.abort(); if (S.hear) S.hear.stopped = true; if (S.tts) S.tts.stop().catch(() => {}); };
 $("hearBtn").onclick = async () => {
   if (!S.tts || !S.lastText) return;
-  const parts = S.lastText.split(/\n+/).map(s => s.trim()).filter(Boolean).flatMap(p => p.match(/[\s\S]{1,1800}(\s|$)/g) || [p]);
+  // A fish.audio narrator (desktop app) performs the whole telling, cues and all; other voices read it in plain pieces.
+  const narrated = S.tts.kind === "narrator";
+  const parts = narrated ? [S.lastText] : stripCues(S.lastText).split(/\n+/).map(s => s.trim()).filter(Boolean).flatMap(p => p.match(/[\s\S]{1,1800}(\s|$)/g) || [p]);
   $("stopBtn").hidden = false;
   const run = S.hear = {stopped: false};
   try { for (const part of parts) { if (run.stopped) break; await S.tts.speak(part, {rate: .95}); } }
