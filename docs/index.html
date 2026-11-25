@@ -121,9 +121,21 @@ footer p{margin:0 0 6px;max-width:110ch}
 @media (prefers-reduced-motion:reduce){ .btn:active{transform:none} }
 body .app-gear{top:auto;bottom:max(14px,env(safe-area-inset-bottom,0px))}
 .dl a{color:var(--gold);font-weight:800}
+
+/* misty forest banner behind the title (Valeria's video, made in Picsart) */
+.hero-wrap{padding-top:14px}
+header.hero{position:relative;isolation:isolate;overflow:hidden;border:3px solid var(--ink);border-radius:22px;padding:34px clamp(16px,3vw,30px) 30px;min-height:190px;background:var(--deep) url("media/misty-forest.jpg") center 62%/cover;box-shadow:0 6px 0 var(--ink)}
+.hero-bg{position:absolute;inset:0;z-index:-1;pointer-events:none}
+.hero-bg video{width:100%;height:100%;object-fit:cover;object-position:center 62%;display:block;opacity:1;transition:opacity .7s ease}
+.hero-bg video.fade{opacity:0}
+.hero-bg::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(22,26,46,.84) 0%,rgba(22,26,46,.5) 45%,rgba(30,35,64,.12) 100%),linear-gradient(0deg,rgba(22,26,46,.5),transparent 55%)}
+header.hero .tag{color:var(--cream);text-shadow:0 1px 3px rgba(17,20,42,.9)}
+@media (max-width:640px){ .hero-bg::after{background:linear-gradient(0deg,rgba(22,26,46,.92) 0%,rgba(22,26,46,.6) 60%,rgba(30,35,64,.35) 100%)} }
 </style>
 
-<header class="wrap">
+<div class="wrap hero-wrap">
+<header class="hero">
+  <div class="hero-bg" aria-hidden="true"><video id="heroVideo" src="media/misty-forest.mp4" poster="media/misty-forest.jpg" muted playsinline preload="auto"></video></div>
   <div class="brand">
     <img class="badge" src="img/icon.png" alt="" width="58" height="58">
     <div>
@@ -137,6 +149,19 @@ body .app-gear{top:auto;bottom:max(14px,env(safe-area-inset-bottom,0px))}
     <input id="q" type="search" placeholder="Search: vampire, Hungary, dragon, ghost…" autocomplete="off">
   </form>
 </header>
+</div>
+<script>
+// The misty forest loops with a soft fade at each repeat; it stays still for people who turn off motion.
+(() => {
+  const v = document.getElementById("heroVideo");
+  const still = matchMedia("(prefers-reduced-motion: reduce)");
+  const start = () => { if (!still.matches) v.play().catch(() => {}); };
+  v.addEventListener("timeupdate", () => { if (v.duration && v.duration - v.currentTime < 0.8) v.classList.add("fade"); });
+  v.addEventListener("ended", () => { v.currentTime = 0; setTimeout(() => { v.classList.remove("fade"); start(); }, 250); });
+  still.addEventListener("change", () => (still.matches ? v.pause() : start()));
+  start();
+})();
+</script>
 
 <main class="wrap">
   <div class="chips" id="chips" role="group" aria-label="Show legends of this kind"></div>
@@ -186,7 +211,7 @@ body .app-gear{top:auto;bottom:max(14px,env(safe-area-inset-bottom,0px))}
 
 <footer class="wrap">
   <p>Dates are when a legend was first written down, as far as we know; most are much older as spoken stories. Retellings and explanations come from Claude and can contain mistakes. Some legends belong to living cultures and faiths: we share only what those communities tell publicly, and you can learn more from their own storytellers.</p>
-  <p>Map: Natural Earth (public domain) via world-atlas. © 2026 Valeria · All rights reserved · Made with Claude</p>
+  <p>Map: Natural Earth (public domain) via world-atlas. Misty forest video: Valeria, made in Picsart. © 2026 Valeria · All rights reserved · Made with Claude</p>
 </footer>
 
 <script>if (window.APP_SITE && window.APP_SITE.download) { const p = document.getElementById("dlLine"); p.querySelector("a").href = window.APP_SITE.download; p.hidden = false; }</script>

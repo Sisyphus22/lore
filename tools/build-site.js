@@ -28,6 +28,6 @@ ${page}
 `);
 fs.copyFileSync(path.join(ROOT, "tools", "web-backend.js"), path.join(OUT, "web-backend.js"));
 fs.copyFileSync(path.join(ROOT, "desktop", "app-src", "app-shim.js"), path.join(OUT, "app-shim.js"));
-for (const dir of ["data", "img", "vendor"]) fs.cpSync(path.join(ROOT, dir), path.join(OUT, dir), { recursive: true });
+for (const dir of ["data", "img", "media", "vendor"]) fs.cpSync(path.join(ROOT, dir), path.join(OUT, dir), { recursive: true });
 fs.writeFileSync(path.join(OUT, ".nojekyll"), "");
 console.log("Built docs/ (download link: " + (download || "none") + ")");

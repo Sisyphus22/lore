@@ -35,5 +35,5 @@ ${page}
 </body></html>
 `);
 fs.copyFileSync(path.join(DESKTOP, "app-src", "app-shim.js"), path.join(OUT, "app-shim.js"));
-for (const dir of ["data", "img", "vendor"]) fs.cpSync(path.join(ROOT, dir), path.join(OUT, dir), { recursive: true });
+for (const dir of ["data", "img", "media", "vendor"]) fs.cpSync(path.join(ROOT, dir), path.join(OUT, dir), { recursive: true });
 console.log("Built", path.relative(ROOT, OUT));
