@@ -1,0 +1,374 @@
+<title>Lore</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,900&family=Nunito:wght@400;600;700;800&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
+<style>
+/* Layout: a storyteller's night map. The world glows with legends; pick one and its tale opens beside the map, with a timeline of when each was first written down. */
+:root{
+  --night:#161a2e; --deep:#1e2340; --slate:#5b6fae; --slate-2:#3f4d86; --ink:#11142a;
+  --gold:#f6c945; --cyan:#35bde9; --peach:#f2a074; --cream:#fff4d9; --mist:#b8c1e4;
+  /* names the Connect Claude panel (app-shim.js) uses */
+  --panel:var(--deep); --panel-2:var(--slate-2); --line:var(--slate); --fg:var(--cream); --dim:var(--mist); --muted:var(--mist); --faded:var(--mist); --rule:var(--slate-2); --desk:var(--night); --desk-2:var(--deep); --vellum:var(--cream);
+  --display:"Fraunces", Georgia, serif; --ui:"Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{background:var(--night);color:var(--cream)}
+body{font-family:var(--ui);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));max-width:1440px;margin:0 auto}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--cyan);outline-offset:2px}
+h1,h2,h3{margin:0;text-wrap:balance}
+
+header{padding-block:22px 10px;display:flex;flex-wrap:wrap;gap:10px 26px;align-items:center;justify-content:space-between}
+.brand{display:flex;align-items:center;gap:14px}
+.badge{width:58px;height:58px;flex:none}
+h1{font-family:var(--display);font-weight:900;font-size:clamp(44px,6vw,68px);line-height:.9;color:var(--gold);letter-spacing:-.01em;-webkit-text-stroke:2px var(--ink);paint-order:stroke fill;text-shadow:0 4px 0 var(--ink)}
+.tag{margin:0;color:var(--mist);max-width:44ch;font-size:16.5px}
+.search{display:flex;gap:8px;min-width:min(420px,100%);flex:1;max-width:520px}
+.search input{flex:1;min-width:0;background:var(--deep);border:3px solid var(--ink);border-radius:14px;padding:10px 14px;box-shadow:inset 0 0 0 2px var(--slate-2)}
+.search input::placeholder{color:var(--mist);opacity:.7}
+
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 12px}
+.chip{border:3px solid var(--ink);border-radius:999px;padding:5px 13px;background:var(--slate-2);color:var(--cream);font-weight:700;font-size:14px;box-shadow:0 3px 0 var(--ink)}
+.chip:hover{background:var(--slate)}
+.chip[aria-pressed="true"]{background:var(--gold);color:var(--ink)}
+.chip.scary[aria-pressed="true"]{background:var(--peach)}
+.chip i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;border:2px solid var(--ink);vertical-align:-1px}
+
+.btn{border:3px solid var(--ink);border-radius:12px;padding:8px 14px;background:var(--slate);color:var(--cream);font-weight:800;box-shadow:0 3px 0 var(--ink);font-size:15px}
+.btn:hover{filter:brightness(1.08)}
+.btn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--ink)}
+.btn.gold{background:var(--gold);color:var(--ink)}
+.btn.cyan{background:var(--cyan);color:var(--ink)}
+.btn[disabled]{opacity:.5;cursor:default}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.small{font-size:13.5px;color:var(--mist)}
+
+.main{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:18px;align-items:start}
+.mapbox{position:relative;border:4px solid var(--ink);border-radius:22px;overflow:hidden;background:var(--slate-2);box-shadow:0 6px 0 var(--ink);touch-action:none}
+#map{display:block;width:100%;height:auto;cursor:grab}
+#map:active{cursor:grabbing}
+#map .land{fill:var(--slate);stroke:var(--ink);stroke-width:1.2px;vector-effect:non-scaling-stroke}
+#map .grat{fill:none;stroke:rgba(255,244,217,.07);stroke-width:1px;vector-effect:non-scaling-stroke}
+#map .pin{cursor:pointer}
+#map .pin circle.dot{stroke:var(--ink);stroke-width:2.2px;vector-effect:non-scaling-stroke}
+#map .pin circle.halo{fill:none;stroke-width:2px;opacity:.55;vector-effect:non-scaling-stroke}
+#map .pin.sel circle.halo{opacity:1;stroke:var(--cream)}
+#map .pin:hover circle.dot{stroke:var(--cream)}
+.mapzoom{position:absolute;right:12px;bottom:12px;display:flex;flex-direction:column;gap:6px}
+.mapzoom .btn{width:40px;height:40px;padding:0;font-size:20px;line-height:1}
+.tip{position:absolute;pointer-events:none;background:var(--cream);color:var(--ink);border:3px solid var(--ink);border-radius:10px;padding:4px 10px;font-weight:800;font-size:13.5px;box-shadow:0 3px 0 var(--ink);white-space:nowrap;z-index:3}
+.tip span{display:block;font-weight:600;font-size:12px;opacity:.75}
+
+.timeline{position:relative;margin-top:14px;border:4px solid var(--ink);border-radius:18px;background:var(--deep);box-shadow:0 5px 0 var(--ink);padding:12px 14px 6px}
+.timeline .label{font-size:12px;letter-spacing:.12em;text-transform:uppercase;font-weight:800;color:var(--gold)}
+#tl{display:block;width:100%;height:96px}
+#tl .axis{stroke:var(--mist);stroke-width:2}
+#tl text{fill:var(--mist);font-size:11px;font-family:var(--ui);font-weight:700}
+#tl .pin{cursor:pointer}
+#tl .pin circle{stroke:var(--ink);stroke-width:2px}
+#tl .pin.sel circle{stroke:var(--cream);stroke-width:3px}
+
+.story{border:4px solid var(--ink);border-radius:22px;background:var(--deep);box-shadow:0 6px 0 var(--ink);padding:18px 20px 20px;min-width:0}
+.kind{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;border:2.5px solid var(--ink);border-radius:999px;padding:2px 10px;color:var(--ink)}
+.story h2{font-family:var(--display);font-weight:900;font-size:clamp(28px,3vw,40px);line-height:1.05;margin:10px 0 2px;color:var(--cream)}
+.meta{color:var(--mist);font-weight:700;font-size:14.5px}
+.first{margin-top:10px;font-size:14px;color:var(--cream);background:rgba(53,189,233,.12);border:2px solid rgba(53,189,233,.45);border-radius:12px;padding:8px 12px}
+.first b{color:var(--cyan)}
+.summary{font-size:17px;line-height:1.6;margin:14px 0 0}
+.fact{margin-top:12px;background:rgba(246,201,69,.12);border:2px solid rgba(246,201,69,.5);border-radius:12px;padding:9px 12px;font-size:15px}
+.fact b{color:var(--gold)}
+.sacred{margin-top:12px;border:2px dashed var(--peach);border-radius:12px;padding:9px 12px;font-size:14.5px;color:var(--cream)}
+.tools{margin-top:16px;padding-top:14px;border-top:3px dashed var(--slate-2)}
+.tools select{background:var(--slate-2);border:3px solid var(--ink);border-radius:12px;padding:7px 10px;font-weight:700}
+.status{font-size:14px;color:var(--mist);min-height:1.4em;margin:8px 0 0}
+.tale{font-size:16.5px;line-height:1.7;margin-top:6px}
+.tale h3{font-family:var(--display);font-weight:700;font-size:19px;color:var(--gold);margin:16px 0 4px}
+.tale p{margin:0 0 11px}
+.tale ul{margin:0 0 11px;padding-left:20px}
+
+.ask{margin-top:18px}
+.ask textarea{width:100%;min-height:58px;resize:vertical;background:var(--slate-2);border:3px solid var(--ink);border-radius:14px;padding:10px 12px}
+.ask textarea::placeholder{color:var(--mist);opacity:.75}
+
+.grid-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:28px 0 10px;flex-wrap:wrap}
+.grid-head h2{font-family:var(--display);font-weight:900;font-size:30px;color:var(--gold)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.card{text-align:left;border:3px solid var(--ink);border-radius:16px;background:var(--deep);padding:12px 14px;box-shadow:0 4px 0 var(--ink);display:flex;flex-direction:column;gap:4px;min-width:0}
+.card:hover{background:#262c52}
+.card[aria-current="true"]{outline:3px solid var(--gold)}
+.card b{font-family:var(--display);font-weight:700;font-size:18px;line-height:1.15}
+.card span{font-size:13px;color:var(--mist)}
+.card .when{color:var(--cyan);font-weight:800;font-size:12.5px}
+
+footer{padding-block:24px 40px;margin-top:28px;border-top:3px dashed var(--slate-2);color:var(--mist);font-size:13px}
+footer p{margin:0 0 6px;max-width:110ch}
+@media (max-width:1000px){ .main{grid-template-columns:minmax(0,1fr)} }
+@media (prefers-reduced-motion:reduce){ .btn:active{transform:none} }
+body .app-gear{top:auto;bottom:max(14px,env(safe-area-inset-bottom,0px))}
+.dl a{color:var(--gold);font-weight:800}
+</style>
+
+<header class="wrap">
+  <div class="brand">
+    <img class="badge" src="img/icon.png" alt="" width="58" height="58">
+    <div>
+      <h1>Lore</h1>
+      <p class="tag">Legends, monsters and spirits from every corner of the world, and when people first wrote them down.</p>
+      <p class="tag dl" id="dlLine" hidden>Free app for Windows, Mac and Linux: <a target="_blank" rel="noopener">download it</a></p>
+    </div>
+  </div>
+  <form class="search" id="searchForm" role="search" onsubmit="return false">
+    <label for="q" class="small" style="position:absolute;left:-9999px">Search legends</label>
+    <input id="q" type="search" placeholder="Search: vampire, Hungary, dragon, ghost…" autocomplete="off">
+  </form>
+</header>
+
+<main class="wrap">
+  <div class="chips" id="chips" role="group" aria-label="Show legends of this kind"></div>
+  <div class="main">
+    <section aria-label="Map and timeline">
+      <div class="mapbox" id="mapbox">
+        <svg id="map" viewBox="0 0 960 500" role="img" aria-label="World map of legends. Click a glowing marker to open its story; drag to move, scroll or use the buttons to zoom."></svg>
+        <div class="mapzoom"><button class="btn" id="zin" type="button" aria-label="Zoom in">+</button><button class="btn" id="zout" type="button" aria-label="Zoom out">−</button></div>
+        <div class="tip" id="tip" hidden></div>
+      </div>
+      <div class="timeline">
+        <div class="label">When each legend was first written down</div>
+        <svg id="tl" role="img" aria-label="Timeline of legends by the date each was first recorded"></svg>
+      </div>
+    </section>
+    <aside class="story" id="story" aria-live="polite">
+      <div id="storyBody"></div>
+      <div class="tools">
+        <div class="row">
+          <select id="style" aria-label="How Claude should tell it">
+            <option value="spooky">Spooky, by candlelight</option>
+            <option value="child">For children</option>
+            <option value="bard">Like an old bard</option>
+            <option value="scholar">The scholar's version</option>
+          </select>
+          <button class="btn gold" id="tellBtn" type="button">Tell me the legend</button>
+          <button class="btn" id="originBtn" type="button">Where did it come from?</button>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button class="btn cyan" id="hearBtn" type="button" hidden>Hear it</button>
+          <button class="btn" id="stopBtn" type="button" hidden>Stop</button>
+        </div>
+        <p class="status" id="status" role="status"></p>
+        <div class="tale" id="tale"></div>
+      </div>
+      <div class="ask">
+        <div class="row" style="justify-content:space-between"><b style="font-family:var(--display);font-size:19px;color:var(--gold)">Ask the storyteller</b></div>
+        <textarea id="askQ" placeholder="For example: What scary legends come from Vojvodina? Which monsters lived in Bohemian castles?"></textarea>
+        <div class="row" style="margin-top:8px"><button class="btn gold" id="askBtn" type="button">Ask</button></div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="grid-head"><h2>All legends</h2><span class="small" id="count"></span></div>
+  <div class="cards" id="cards"></div>
+</main>
+
+<footer class="wrap">
+  <p>Dates are when a legend was first written down, as far as we know; most are much older as spoken stories. Retellings and explanations come from Claude and can contain mistakes. Some legends belong to living cultures and faiths: we share only what those communities tell publicly, and you can learn more from their own storytellers.</p>
+  <p>Map: Natural Earth (public domain) via world-atlas. © 2026 Valeria · All rights reserved · Made with Claude</p>
+</footer>
+
+<script>if (window.APP_SITE && window.APP_SITE.download) { const p = document.getElementById("dlLine"); p.querySelector("a").href = window.APP_SITE.download; p.hidden = false; }</script>
+<script>
+(() => {
+"use strict";
+const $ = id => document.getElementById(id);
+function el(tag, attrs, ...kids){
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) { if (v == null || v === false) continue; if (k === "class") n.className = v; else if (k === "style") n.style.cssText = v; else if (k.startsWith("on")) n.addEventListener(k.slice(2), v); else n.setAttribute(k, v === true ? "" : v); }
+  kids.flat().forEach(c => { if (c != null && c !== false) n.append(c instanceof Node ? c : document.createTextNode(String(c))); });
+  return n;
+}
+const KINDS = {
+  creature: {name:"Creatures & beasts", color:"#f6c945"},
+  spirit:   {name:"Ghosts & spirits",   color:"#35bde9"},
+  hero:     {name:"Heroes & tricksters",color:"#f2a074"},
+  place:    {name:"Lost lands & mysteries", color:"#c9b8ff"},
+  sea:      {name:"Water & sea",        color:"#7fe3d0"}
+};
+const S = {all: [], filter: "all", q: "", sel: null, sample: null, tts: null, ctl: null, lastText: ""};
+const fmtYear = y => y < 0 ? Math.abs(y).toLocaleString("en") + " BCE" : y < 1000 ? y + " CE" : String(y);
+const visible = () => S.all.filter(L => (S.filter === "all" || (S.filter === "scary" ? L.scary : L.kind === S.filter)) &&
+  (!S.q || (L.name + " " + L.culture + " " + L.where + " " + L.summary).toLowerCase().includes(S.q)));
+
+/* ---------- chips ---------- */
+function renderChips(){
+  const opts = [["all", "All legends"], ["scary", "Scary ones"], ...Object.entries(KINDS).map(([k, v]) => [k, v.name])];
+  $("chips").replaceChildren(...opts.map(([k, name]) => el("button", {type:"button", class:"chip" + (k === "scary" ? " scary" : ""), "aria-pressed": String(S.filter === k), onclick: () => { S.filter = k; renderChips(); refresh(); }},
+    KINDS[k] ? el("i", {style:"background:" + KINDS[k].color}) : k === "scary" ? "🕯 " : null, name)));
+}
+
+/* ---------- map ---------- */
+let proj, zoom, gZoom, pinsG;
+async function drawMap(){
+  const land = await fetch("data/land-110m.json").then(r => r.json());
+  const svg = d3.select("#map");
+  proj = d3.geoNaturalEarth1().fitExtent([[8, 8], [952, 492]], {type:"Sphere"});
+  const path = d3.geoPath(proj);
+  gZoom = svg.append("g");
+  gZoom.append("path").datum(d3.geoGraticule10()).attr("class", "grat").attr("d", path);
+  gZoom.append("path").datum(topojson.feature(land, land.objects.land)).attr("class", "land").attr("d", path);
+  pinsG = gZoom.append("g");
+  zoom = d3.zoom().scaleExtent([1, 9]).translateExtent([[0, 0], [960, 500]]).on("zoom", e => { gZoom.attr("transform", e.transform); pinsG.selectAll(".pin").attr("transform", d => `translate(${proj([d.lon, d.lat])}) scale(${1 / e.transform.k})`); });
+  svg.call(zoom);
+  $("zin").onclick = () => svg.transition().duration(300).call(zoom.scaleBy, 1.6);
+  $("zout").onclick = () => svg.transition().duration(300).call(zoom.scaleBy, 1 / 1.6);
+}
+function renderPins(){
+  const k = d3.zoomTransform($("map")).k;
+  const data = visible();
+  const pins = pinsG.selectAll(".pin").data(data, d => d.id);
+  pins.exit().remove();
+  const enter = pins.enter().append("g").attr("class", "pin").attr("tabindex", 0).attr("role", "button");
+  enter.append("circle").attr("class", "halo").attr("r", 11);
+  enter.append("circle").attr("class", "dot").attr("r", 6.5);
+  enter.append("title").text(d => d.name + " · " + d.culture);
+  const all = enter.merge(pins);
+  all.attr("transform", d => `translate(${proj([d.lon, d.lat])}) scale(${1 / k})`)
+    .classed("sel", d => S.sel && d.id === S.sel.id)
+    .on("click", (e, d) => select(d))
+    .on("keydown", (e, d) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); select(d); } })
+    .on("mouseenter", (e, d) => showTip(e, d)).on("mouseleave", () => $("tip").hidden = true);
+  all.select(".dot").attr("fill", d => d.scary && S.filter === "scary" ? "#f2a074" : KINDS[d.kind].color);
+  all.select(".halo").attr("stroke", d => KINDS[d.kind].color);
+  if (S.sel) all.filter(d => d.id === S.sel.id).raise();
+}
+function showTip(e, d){
+  const box = $("mapbox").getBoundingClientRect(), t = $("tip");
+  t.replaceChildren(d.name, el("span", null, d.culture + " · " + fmtYear(d.first)));
+  t.hidden = false;
+  t.style.left = Math.min(box.width - t.offsetWidth - 8, Math.max(8, e.clientX - box.left + 14)) + "px";
+  t.style.top = Math.max(8, e.clientY - box.top - 46) + "px";
+}
+
+/* ---------- timeline ---------- */
+const BREAKS = [-4100, -1000, 0, 1000, 1500, 1800, 2000];
+function tlScale(w){ const n = BREAKS.length - 1; return d3.scaleLinear().domain(BREAKS).range(BREAKS.map((_, i) => 16 + (w - 32) * i / n)); }
+function renderTimeline(){
+  const svg = d3.select("#tl"); const w = $("tl").clientWidth || 800, h = 96; svg.attr("viewBox", `0 0 ${w} ${h}`); svg.selectAll("*").remove();
+  const x = tlScale(w), axisY = 70;
+  svg.append("line").attr("class", "axis").attr("x1", 16).attr("x2", w - 16).attr("y1", axisY).attr("y2", axisY);
+  BREAKS.forEach(b => { svg.append("line").attr("class", "axis").attr("x1", x(b)).attr("x2", x(b)).attr("y1", axisY - 4).attr("y2", axisY + 4); svg.append("text").attr("x", x(Math.max(b, -4000))).attr("y", axisY + 18).attr("text-anchor", b === BREAKS[0] ? "start" : b === 2000 ? "end" : "middle").text(b <= -4000 ? "4000 BCE" : b === 0 ? "1 CE" : fmtYear(b)); });
+  const data = visible().slice().sort((a, b) => a.first - b.first);
+  const lanes = []; const r = 6;
+  data.forEach(d => { const px = x(Math.max(-4000, d.first)); let lane = 0; while (lanes[lane] != null && px - lanes[lane] < r * 2 + 1) lane++; lanes[lane] = px; d._tx = px; d._ty = axisY - 12 - (lane % 5) * 12; });
+  const g = svg.append("g");
+  const pins = g.selectAll(".pin").data(data, d => d.id).enter().append("g").attr("class", "pin").classed("sel", d => S.sel && d.id === S.sel.id).attr("transform", d => `translate(${d._tx},${d._ty})`).on("click", (e, d) => select(d));
+  pins.append("circle").attr("r", r).attr("fill", d => KINDS[d.kind].color);
+  pins.append("title").text(d => d.name + " · first written " + fmtYear(d.first));
+}
+
+/* ---------- story panel ---------- */
+function select(d, quiet){
+  S.sel = d;
+  if (S.ctl) { S.ctl.abort(); S.ctl = null; }
+  if (S.tts) S.tts.stop().catch(() => {});
+  $("tale").replaceChildren(); $("status").textContent = ""; S.lastText = d.name + ". " + d.summary + " " + (d.fact || "");
+  const k = KINDS[d.kind];
+  $("storyBody").replaceChildren(...[
+    el("span", {class:"kind", style:"background:" + k.color}, k.name.replace(/ &.*/, ""), d.scary ? " · scary" : ""),
+    el("h2", null, d.name),
+    el("div", {class:"meta"}, d.culture + " · " + d.where),
+    el("div", {class:"first"}, el("b", null, "First written down: " + fmtYear(d.first)), " · " + d.firstText),
+    el("p", {class:"summary"}, d.summary),
+    d.fact ? el("div", {class:"fact"}, el("b", null, "Did you know? "), d.fact) : null,
+    d.sacred ? el("div", {class:"sacred"}, "This legend belongs to a living culture or faith. We share only what is told publicly; for the full stories, listen to that community's own storytellers.") : null].filter(Boolean));
+  $("hearBtn").hidden = !S.tts;
+  document.querySelectorAll(".card").forEach(c => c.setAttribute("aria-current", String(c.dataset.id === d.id)));
+  renderPins(); renderTimeline();
+  if (!quiet) { const [x, y] = proj([d.lon, d.lat]); const t = d3.zoomTransform($("map")); if (x * t.k + t.x < 30 || x * t.k + t.x > 930 || y * t.k + t.y < 30 || y * t.k + t.y > 470) d3.select("#map").transition().duration(600).call(zoom.translateTo, x, y); }
+}
+
+/* ---------- cards ---------- */
+function renderCards(){
+  const data = visible().slice().sort((a, b) => a.first - b.first);
+  $("count").textContent = data.length + " of " + S.all.length + " legends";
+  $("cards").replaceChildren(...data.map(d => el("button", {type:"button", class:"card", "data-id": d.id, "aria-current": String(S.sel && S.sel.id === d.id), onclick: () => { select(d); $("story").scrollIntoView({behavior:"smooth", block:"start"}); }},
+    el("span", {class:"when"}, "First written " + fmtYear(d.first)), el("b", null, d.name), el("span", null, d.culture + " · " + d.where))));
+}
+function refresh(){ renderPins(); renderTimeline(); renderCards(); }
+$("q").addEventListener("input", () => { S.q = $("q").value.trim().toLowerCase(); refresh(); });
+addEventListener("resize", () => renderTimeline());
+
+/* ---------- Claude ---------- */
+const RULES = "Write in warm, vivid, plain English for a curious adult. Use only short paragraphs, optional lines starting with '## ' as headings, and **bold** for a few names. Never invent sources, dates or quotes; say 'in some versions' where tellings differ and say when something is uncertain. If the legend belongs to a living Indigenous culture or faith, retell only widely published, general elements respectfully, and do not describe secret or restricted knowledge.";
+const STYLES = {
+  spooky: "Tell it as a spooky campfire story, building suspense, but stay faithful to the traditional versions.",
+  child: "Tell it gently for children aged 7 to 10, exciting but not frightening, in simple words.",
+  bard: "Tell it like an old bard by the fire, with rhythm and a little old-fashioned flavour.",
+  scholar: "Give the scholar's version: the main traditional versions, compared clearly."
+};
+function md(target, text){
+  const frag = document.createDocumentFragment(); let ul = null;
+  const inline = (n, s) => s.split(/\*\*/).forEach((p, i) => { if (p) n.append(i % 2 ? el("strong", null, p) : document.createTextNode(p)); });
+  for (const raw of text.split("\n")) {
+    const line = raw.trim(); if (!line) { ul = null; continue; }
+    if (/^#{1,4}\s/.test(line)) { ul = null; const h = el("h3"); inline(h, line.replace(/^#+\s+/, "")); frag.append(h); continue; }
+    if (/^[-*•]\s+/.test(line)) { if (!ul) { ul = el("ul"); frag.append(ul); } const li = el("li"); inline(li, line.replace(/^[-*•]\s+/, "")); ul.append(li); continue; }
+    ul = null; const p = el("p"); inline(p, line); frag.append(p);
+  }
+  target.replaceChildren(frag);
+}
+function errCopy(e){
+  const c = e && e.code;
+  if (c === "no_key") return "Add your Anthropic API key with Connect Claude to hear the storyteller.";
+  if (c === "invalid_key") return "Your API key was rejected. Check it with Connect Claude.";
+  if (c === "offline") return "Can't reach Claude. Check your internet connection.";
+  if (["not_granted","sampling_disabled","not_declared","capability_disabled","capability_removed"].includes(c)) return "The storyteller isn't available here.";
+  if (c === "rate_limited") return "The storyteller needs a breath. Try again in a moment.";
+  if (c === "refused") return "The storyteller won't tell that one. Try another question.";
+  if (c === "cancelled") return "Stopped.";
+  return "Something went wrong reaching Claude. Try again.";
+}
+async function run(prompt, out, busyText){
+  if (!S.sample) { $("status").textContent = "The storyteller isn't available here."; return; }
+  if (S.ctl) S.ctl.abort();
+  const ctl = S.ctl = new AbortController();
+  $("status").textContent = busyText; $("stopBtn").hidden = false; out.replaceChildren();
+  let pending = "", raf = 0;
+  try {
+    const r = await S.sample(prompt, {signal: ctl.signal, onText: ({text}) => { pending = text; $("status").textContent = "The storyteller is speaking…"; if (!raf) raf = requestAnimationFrame(() => { raf = 0; md(out, pending); }); }});
+    cancelAnimationFrame(raf); md(out, r.text); S.lastText = r.text.replace(/^#+\s*/gm, "").replace(/\*\*/g, "");
+    $("status").textContent = r.truncated ? "The tale was cut short. Ask again for the rest." : "Told by Claude · it can make mistakes";
+  } catch (e) { cancelAnimationFrame(raf); if (e && e.text && e.code !== "refused") md(out, e.text); $("status").textContent = errCopy(e); }
+  finally { if (S.ctl === ctl) S.ctl = null; $("stopBtn").hidden = true; }
+}
+$("tellBtn").onclick = () => { const d = S.sel; if (!d) return; run(`Retell the legend of "${d.name}" from ${d.culture} tradition (${d.where}), first written down ${fmtYear(d.first)} in ${d.firstText}. Basic outline: ${d.summary}\n\n${STYLES[$("style").value]} About 350 to 550 words. End with one line in italics-free plain text saying which old source or region the telling follows.\n\n${RULES}`, $("tale"), "The storyteller clears their throat…"); };
+$("originBtn").onclick = () => { const d = S.sel; if (!d) return; run(`Explain where the legend of "${d.name}" (${d.culture}, ${d.where}) really came from: the earliest records (the atlas says ${d.firstText}), the real history, animals, fears, places or events that may lie behind it, and how the story spread and changed over time. 250 to 450 words with 3 or 4 short '## ' headings.\n\n${RULES}`, $("tale"), "Searching the old chronicles…"); };
+$("askBtn").onclick = () => { const q = $("askQ").value.trim(); if (!q) { $("status").textContent = "Type a question for the storyteller."; return; } run(`A visitor to an interactive world map of folklore asks: "${q}"\n\nAnswer as a knowledgeable, friendly storyteller and folklorist. Name real, documented legends, with the place and roughly when each was first recorded. 250 to 500 words.\n\n${RULES}`, $("tale"), "The storyteller is thinking…"); $("story").scrollIntoView({behavior:"smooth", block:"start"}); };
+$("stopBtn").onclick = () => { if (S.ctl) S.ctl.abort(); if (S.tts) S.tts.stop().catch(() => {}); };
+$("hearBtn").onclick = async () => {
+  if (!S.tts || !S.lastText) return;
+  const parts = S.lastText.split(/\n+/).map(s => s.trim()).filter(Boolean).flatMap(p => p.match(/[\s\S]{1,1800}(\s|$)/g) || [p]);
+  $("stopBtn").hidden = false;
+  try { await S.tts.speak(parts.map(text => ({text})), {rate: .95}); }
+  catch (e) { if (e && e.code === "not_granted") { S.tts = null; $("hearBtn").hidden = true; } }
+  finally { $("stopBtn").hidden = true; }
+};
+
+/* ---------- boot ---------- */
+(async function boot(){
+  renderChips();
+  try { S.all = await fetch("data/legends.json", {cache:"no-cache"}).then(r => r.json()); await drawMap(); }
+  catch (e) { $("storyBody").textContent = "The map of legends couldn't load. Reload the page to try again."; return; }
+  refresh();
+  select(S.all.find(d => d.id === "turul") || S.all[0], true);
+  if (window.claude && window.claude.use) {
+    claude.use("sample").then(x => { S.sample = x; if (!x) $("status").textContent = "The storyteller isn't available here."; });
+    claude.use("tts").then(x => { S.tts = x; $("hearBtn").hidden = !x; });
+  }
+})();
+})();
+</script>

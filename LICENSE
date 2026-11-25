@@ -1,0 +1,21 @@
+Lore
+Copyright (c) 2026 Valeria. All rights reserved.
+
+Made with Claude (Anthropic).
+
+This repository is published so people can use the Lore website and download the
+desktop app for personal use. No licence is granted to copy, modify, redistribute,
+republish or create derivative works from the code, design, icon or written content
+(legend summaries, notes and texts) in this repository, in whole or in part, without
+written permission from the copyright holder.
+
+Legends and folklore belong to the cultures that tell them, and are not owned by
+anyone here. Some belong to living cultures and faiths; learn them from their own
+storytellers.
+
+Third-party parts keep their own licences:
+- Map data: Natural Earth (public domain), via world-atlas (ISC licence).
+- d3 (ISC licence) and topojson-client (ISC licence), in vendor/ with their licence files.
+
+Storytelling uses Anthropic's API with each user's own API key.
+Use of Claude is subject to Anthropic's own terms.
