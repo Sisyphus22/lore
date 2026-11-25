@@ -130,6 +130,15 @@ header.hero{position:relative;isolation:isolate;overflow:hidden;border:3px solid
 .hero-bg video.fade{opacity:0}
 .hero-bg::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(22,26,46,.84) 0%,rgba(22,26,46,.5) 45%,rgba(30,35,64,.12) 100%),linear-gradient(0deg,rgba(22,26,46,.5),transparent 55%)}
 header.hero .tag{color:var(--cream);text-shadow:0 1px 3px rgba(17,20,42,.9)}
+/* moonlit tower behind the Romanian vampire legends (Valeria's video, made in Picsart); it drifts with the mouse */
+.story{position:relative;isolation:isolate;overflow:hidden}
+.story-bg{position:absolute;left:0;right:0;top:0;height:min(460px,75%);z-index:-1;pointer-events:none;overflow:hidden;background:var(--night) url("media/moonlit-tower.jpg") center 35%/cover;--px:0px;--py:0px}
+.story-bg video{width:100%;height:100%;object-fit:cover;object-position:center 35%;display:block;transform:scale(1.1) translate(var(--px),var(--py));transition:transform .5s ease-out,opacity .7s ease}
+.story-bg video.fade{opacity:0}
+.story-bg::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(22,26,46,.45) 0%,rgba(30,35,64,.72) 55%,var(--deep) 100%)}
+.story.haunted .meta{color:var(--cream)}
+.story.haunted h2{text-shadow:0 2px 8px rgba(17,20,42,.9)}
+@media (prefers-reduced-motion:reduce){ .story-bg video{transform:none;transition:none} }
 @media (max-width:640px){ .hero-bg::after{background:linear-gradient(0deg,rgba(22,26,46,.92) 0%,rgba(22,26,46,.6) 60%,rgba(30,35,64,.35) 100%)} }
 </style>
 
@@ -178,6 +187,7 @@ header.hero .tag{color:var(--cream);text-shadow:0 1px 3px rgba(17,20,42,.9)}
       </div>
     </section>
     <aside class="story" id="story" aria-live="polite">
+      <div class="story-bg" id="storyBg" aria-hidden="true" hidden><video id="moonVideo" muted playsinline preload="none" poster="media/moonlit-tower.jpg"></video></div>
       <div id="storyBody"></div>
       <div class="tools">
         <div class="row">
@@ -211,7 +221,7 @@ header.hero .tag{color:var(--cream);text-shadow:0 1px 3px rgba(17,20,42,.9)}
 
 <footer class="wrap">
   <p>Dates are when a legend was first written down, as far as we know; most are much older as spoken stories. Retellings and explanations come from Claude and can contain mistakes. Some legends belong to living cultures and faiths: we share only what those communities tell publicly, and you can learn more from their own storytellers.</p>
-  <p>Map: Natural Earth (public domain) via world-atlas. Misty forest video: Valeria, made in Picsart. © 2026 Valeria · All rights reserved · Made with Claude</p>
+  <p>Map: Natural Earth (public domain) via world-atlas. Misty forest and moonlit tower videos: Valeria, made in Picsart. © 2026 Valeria · All rights reserved · Made with Claude</p>
 </footer>
 
 <script>if (window.APP_SITE && window.APP_SITE.download) { const p = document.getElementById("dlLine"); p.querySelector("a").href = window.APP_SITE.download; p.hidden = false; }</script>
@@ -230,7 +240,8 @@ const KINDS = {
   spirit:   {name:"Ghosts & spirits",   color:"#35bde9"},
   hero:     {name:"Heroes & tricksters",color:"#f2a074"},
   place:    {name:"Lost lands & mysteries", color:"#c9b8ff"},
-  sea:      {name:"Water & sea",        color:"#7fe3d0"}
+  sea:      {name:"Water & sea",        color:"#7fe3d0"},
+  witch:    {name:"Witches & trials",   color:"#e58fd6"}
 };
 const S = {all: [], filter: "all", q: "", sel: null, sample: null, tts: null, ctl: null, lastText: ""};
 const fmtYear = y => y < 0 ? Math.abs(y).toLocaleString("en") + " BCE" : y < 1000 ? y + " CE" : String(y);
@@ -305,6 +316,27 @@ function renderTimeline(){
 }
 
 /* ---------- story panel ---------- */
+/* The moonlit tower plays behind Dracula, Nosferatu and the Strigoi, and shifts a little as the mouse moves */
+const HAUNTED = new Set(["dracula", "nosferatu", "strigoi"]);
+const stillMotion = matchMedia("(prefers-reduced-motion: reduce)");
+function haunt(on){
+  const bg = $("storyBg"), v = $("moonVideo");
+  bg.hidden = !on; $("story").classList.toggle("haunted", on);
+  if (!on) { v.pause(); return; }
+  if (!v.src) {
+    v.src = "media/moonlit-tower.mp4";
+    v.addEventListener("timeupdate", () => { if (v.duration && v.duration - v.currentTime < 0.8) v.classList.add("fade"); });
+    v.addEventListener("ended", () => { v.currentTime = 0; setTimeout(() => { v.classList.remove("fade"); if (!bg.hidden && !stillMotion.matches) v.play().catch(() => {}); }, 250); });
+    $("story").addEventListener("pointermove", e => {
+      if (bg.hidden || stillMotion.matches || e.pointerType !== "mouse") return;
+      const r = $("story").getBoundingClientRect();
+      bg.style.setProperty("--px", ((e.clientX - r.left) / r.width - .5) * -18 + "px");
+      bg.style.setProperty("--py", ((e.clientY - r.top) / r.height - .5) * -12 + "px");
+    });
+    $("story").addEventListener("pointerleave", () => { bg.style.setProperty("--px", "0px"); bg.style.setProperty("--py", "0px"); });
+  }
+  if (!stillMotion.matches) { v.currentTime = 0; v.classList.remove("fade"); v.play().catch(() => {}); }
+}
 function select(d, quiet){
   S.sel = d;
   if (S.ctl) { S.ctl.abort(); S.ctl = null; }
@@ -320,6 +352,7 @@ function select(d, quiet){
     d.fact ? el("div", {class:"fact"}, el("b", null, "Did you know? "), d.fact) : null,
     d.sacred ? el("div", {class:"sacred"}, "This legend belongs to a living culture or faith. We share only what is told publicly; for the full stories, listen to that community's own storytellers.") : null].filter(Boolean));
   $("hearBtn").hidden = !S.tts;
+  haunt(HAUNTED.has(d.id));
   document.querySelectorAll(".card").forEach(c => c.setAttribute("aria-current", String(c.dataset.id === d.id)));
   renderPins(); renderTimeline();
   if (!quiet) { const [x, y] = proj([d.lon, d.lat]); const t = d3.zoomTransform($("map")); if (x * t.k + t.x < 30 || x * t.k + t.x > 930 || y * t.k + t.y < 30 || y * t.k + t.y > 470) d3.select("#map").transition().duration(600).call(zoom.translateTo, x, y); }
