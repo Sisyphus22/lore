@@ -340,7 +340,7 @@ async function run(prompt, out, busyText){
   let pending = "", raf = 0;
   try {
     const r = await S.sample(prompt, {signal: ctl.signal, onText: ({text}) => { pending = text; $("status").textContent = "The storyteller is speaking…"; if (!raf) raf = requestAnimationFrame(() => { raf = 0; md(out, pending); }); }});
-    cancelAnimationFrame(raf); md(out, r.text); S.lastText = r.text.replace(/^#+\s*/gm, "").replace(/\*\*/g, "");
+    cancelAnimationFrame(raf); md(out, r.text); S.lastText = r.text.replace(/^#+\s*/gm, "").replace(/[*_]+/g, "").replace(/^\s*[-•]\s+/gm, "");
     $("status").textContent = r.truncated ? "The tale was cut short. Ask again for the rest." : "Told by Claude · it can make mistakes";
   } catch (e) { cancelAnimationFrame(raf); if (e && e.text && e.code !== "refused") md(out, e.text); $("status").textContent = errCopy(e); }
   finally { if (S.ctl === ctl) S.ctl = null; $("stopBtn").hidden = true; }
@@ -348,14 +348,15 @@ async function run(prompt, out, busyText){
 $("tellBtn").onclick = () => { const d = S.sel; if (!d) return; run(`Retell the legend of "${d.name}" from ${d.culture} tradition (${d.where}), first written down ${fmtYear(d.first)} in ${d.firstText}. Basic outline: ${d.summary}\n\n${STYLES[$("style").value]} About 350 to 550 words. End with one line in italics-free plain text saying which old source or region the telling follows.\n\n${RULES}`, $("tale"), "The storyteller clears their throat…"); };
 $("originBtn").onclick = () => { const d = S.sel; if (!d) return; run(`Explain where the legend of "${d.name}" (${d.culture}, ${d.where}) really came from: the earliest records (the atlas says ${d.firstText}), the real history, animals, fears, places or events that may lie behind it, and how the story spread and changed over time. 250 to 450 words with 3 or 4 short '## ' headings.\n\n${RULES}`, $("tale"), "Searching the old chronicles…"); };
 $("askBtn").onclick = () => { const q = $("askQ").value.trim(); if (!q) { $("status").textContent = "Type a question for the storyteller."; return; } run(`A visitor to an interactive world map of folklore asks: "${q}"\n\nAnswer as a knowledgeable, friendly storyteller and folklorist. Name real, documented legends, with the place and roughly when each was first recorded. 250 to 500 words.\n\n${RULES}`, $("tale"), "The storyteller is thinking…"); $("story").scrollIntoView({behavior:"smooth", block:"start"}); };
-$("stopBtn").onclick = () => { if (S.ctl) S.ctl.abort(); if (S.tts) S.tts.stop().catch(() => {}); };
+$("stopBtn").onclick = () => { if (S.ctl) S.ctl.abort(); if (S.hear) S.hear.stopped = true; if (S.tts) S.tts.stop().catch(() => {}); };
 $("hearBtn").onclick = async () => {
   if (!S.tts || !S.lastText) return;
   const parts = S.lastText.split(/\n+/).map(s => s.trim()).filter(Boolean).flatMap(p => p.match(/[\s\S]{1,1800}(\s|$)/g) || [p]);
   $("stopBtn").hidden = false;
-  try { await S.tts.speak(parts.map(text => ({text})), {rate: .95}); }
+  const run = S.hear = {stopped: false};
+  try { for (const part of parts) { if (run.stopped) break; await S.tts.speak(part, {rate: .95}); } }
   catch (e) { if (e && e.code === "not_granted") { S.tts = null; $("hearBtn").hidden = true; } }
-  finally { $("stopBtn").hidden = true; }
+  finally { if (S.hear === run) { S.hear = null; $("stopBtn").hidden = true; } }
 };
 
 /* ---------- boot ---------- */
