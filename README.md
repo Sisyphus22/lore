@@ -11,12 +11,15 @@ written down, and Claude as your storyteller.
 
 ## Features
 
-- 163 legends on a world map, with filters (including **Scary ones**) and search
+- 172 legends on a world map, with filters (including **Scary ones**) and search
 - A timeline of when each legend was first recorded, from about 4000 BCE to 1995
 - For every legend: culture, place, earliest record, the story in brief and a *Did you know?*
 - **Tell me the legend** (spooky, for children, like an old bard, or the scholar's version),
   **Where did it come from?** and **Ask the storyteller**, read aloud
 - Respect notes for legends that belong to living cultures and faiths
+- Legends told in the Lore TV series (2017) link to the episode and to the podcast. The desktop app can
+  also play your own copies of the episodes from a folder on your computer; they are never uploaded.
+- Legends from the Lore TV series (2017) link to the episode and the podcast; the desktop app can play your own copies of the episodes from your computer (they are never uploaded)
 
 Storytelling uses each person's own Anthropic API key (**Connect Claude**, bottom right).
 

@@ -29,4 +29,6 @@ contextBridge.exposeInMainWorld("atlasApp", {
   dbDelete: (col, id) => ipcRenderer.invoke("db:delete", col, id),
   onDbChange: (f) => { dbListeners.add(f); },
   upload: (bytes, type) => ipcRenderer.invoke("assets:upload", { bytes, type }),
+  episodes: () => ipcRenderer.invoke("episodes:list"),
+  chooseEpisodesFolder: () => ipcRenderer.invoke("episodes:chooseFolder"),
 });

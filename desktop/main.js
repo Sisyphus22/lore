@@ -4,11 +4,12 @@
 // the user's own Anthropic API key (stored encrypted by the operating system:
 // DPAPI on Windows, Keychain on macOS, the desktop keyring on Linux).
 
-const { app, BrowserWindow, Menu, ipcMain, protocol, net, safeStorage, shell } = require("electron");
+const { app, BrowserWindow, Menu, ipcMain, protocol, net, safeStorage, shell, dialog } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
 const { pathToFileURL } = require("url");
+const { Readable } = require("stream");
 const AnthropicModule = require("@anthropic-ai/sdk");
 const Anthropic = AnthropicModule.default || AnthropicModule;
 
@@ -230,10 +231,75 @@ ipcMain.handle("assets:upload", (_e, { bytes, type }) => {
   return { ok: true, id, size: buf.length };
 });
 
+/* ---------- the viewer's own Lore episodes ----------
+   Plays video files already on this computer, named like "Lore.2017.S01E03...mp4".
+   Nothing is copied or uploaded: the app only reads them from the chosen folder. */
+const EP_FILE = /S(\d{1,2})E(\d{1,2})/i;
+const EP_EXT = /\.(mp4|m4v|webm)$/i;
+function episodeDirs() {
+  const home = app.getPath("home"), out = [];
+  if (settings.episodesDir) out.push(settings.episodesDir);
+  for (const base of [app.getPath("desktop"), path.join(home, "OneDrive", "Desktop"), app.getPath("downloads"), app.getPath("videos")]) {
+    out.push(path.join(base, "Lore"), base);
+  }
+  return [...new Set(out)];
+}
+function scanEpisodes(dir) {
+  const found = {};
+  try {
+    for (const name of fs.readdirSync(dir)) {
+      const m = EP_FILE.exec(name);
+      if (!m || !EP_EXT.test(name) || !/lore/i.test(name)) continue;
+      const key = "S" + Number(m[1]) + "E" + Number(m[2]);
+      if (!found[key]) found[key] = path.join(dir, name);
+    }
+  } catch {}
+  return found;
+}
+let episodeCache = null;
+function episodes() {
+  if (episodeCache) return episodeCache;
+  for (const dir of episodeDirs()) { const f = scanEpisodes(dir); if (Object.keys(f).length) return (episodeCache = { dir, files: f }); }
+  return (episodeCache = { dir: settings.episodesDir || "", files: {} });
+}
+const publicEpisodes = () => { const e = episodes(); return { dir: e.dir, found: Object.keys(e.files) }; };
+ipcMain.handle("episodes:list", () => publicEpisodes());
+ipcMain.handle("episodes:chooseFolder", async (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  const r = await dialog.showOpenDialog(win, { title: "Choose the folder with your Lore episodes", properties: ["openDirectory"], defaultPath: episodes().dir || app.getPath("desktop") });
+  if (r.canceled || !r.filePaths[0]) return null;
+  settings.episodesDir = r.filePaths[0]; saveSettings(); episodeCache = null;
+  return publicEpisodes();
+});
+
+/* Streams a local file with byte ranges, so long videos can be skipped through. */
+const VIDEO_TYPES = { ".mp4": "video/mp4", ".m4v": "video/mp4", ".webm": "video/webm" };
+function serveRange(request, file) {
+  let size; try { size = fs.statSync(file).size; } catch { return new Response("Not found", { status: 404 }); }
+  const type = VIDEO_TYPES[path.extname(file).toLowerCase()] || "application/octet-stream";
+  const m = /bytes=(\d*)-(\d*)/.exec(request.headers.get("range") || "");
+  let start = 0, end = size - 1, status = 200;
+  if (m && (m[1] || m[2])) {
+    if (m[1]) { start = Number(m[1]); if (m[2]) end = Math.min(size - 1, Number(m[2])); }
+    else { start = Math.max(0, size - Number(m[2])); }
+    if (start > end || start >= size) return new Response(null, { status: 416, headers: { "Content-Range": "bytes */" + size } });
+    status = 206;
+  }
+  const stream = Readable.toWeb(fs.createReadStream(file, { start, end }));
+  const headers = { "Content-Type": type, "Accept-Ranges": "bytes", "Content-Length": String(end - start + 1) };
+  if (status === 206) headers["Content-Range"] = "bytes " + start + "-" + end + "/" + size;
+  return new Response(stream, { status, headers });
+}
+
 /* ---------- window ---------- */
 function serve(request) {
   const url = new URL(request.url);
   let p = decodeURIComponent(url.pathname);
+  if (p.startsWith("/_episode/")) {
+    const file = episodes().files[p.slice(10)];
+    if (!file || !fs.existsSync(file)) { episodeCache = null; return new Response("Not found", { status: 404 }); }
+    return serveRange(request, file);
+  }
   if (p.startsWith("/_blob/")) {
     const id = p.slice(7);
     const meta = /^[0-9a-f]{32}$/.test(id) && store.assets[id];

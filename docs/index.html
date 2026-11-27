@@ -95,6 +95,13 @@ h1{font-family:var(--display);font-weight:900;font-size:clamp(44px,6vw,68px);lin
 .fact{margin-top:12px;background:rgba(246,201,69,.12);border:2px solid rgba(246,201,69,.5);border-radius:12px;padding:9px 12px;font-size:15px}
 .fact b{color:var(--gold)}
 .sacred{margin-top:12px;border:2px dashed var(--peach);border-radius:12px;padding:9px 12px;font-size:14.5px;color:var(--cream)}
+.episode{margin-top:12px;background:rgba(242,160,116,.12);border:2px solid rgba(242,160,116,.5);border-radius:12px;padding:10px 12px;font-size:14.5px}
+.episode .ep-head b{color:var(--peach)}
+.episode .row{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.episode a.btn{text-decoration:none;font-size:14px;padding:6px 12px}
+.ep-mine{margin-top:10px}
+.ep-mine video{display:block;width:100%;max-height:52vh;margin-top:6px;border:3px solid var(--ink);border-radius:10px;background:#000}
+.ep-mine p{margin:0 0 6px}
 .tools{margin-top:16px;padding-top:14px;border-top:3px dashed var(--slate-2)}
 .tools select{background:var(--slate-2);border:3px solid var(--ink);border-radius:12px;padding:7px 10px;font-weight:700}
 .status{font-size:14px;color:var(--mist);min-height:1.4em;margin:8px 0 0}
@@ -120,6 +127,7 @@ h1{font-family:var(--display);font-weight:900;font-size:clamp(44px,6vw,68px);lin
 footer{padding-block:24px 40px;margin-top:28px;border-top:3px dashed var(--slate-2);color:var(--mist);font-size:13px}
 footer p{margin:0 0 6px;max-width:110ch}
 @media (max-width:1000px){ .main{grid-template-columns:minmax(0,1fr)} }
+@media (min-width:1001px){ .main > section{position:sticky;top:max(12px,env(safe-area-inset-top,0px))} }
 @media (prefers-reduced-motion:reduce){ .btn:active{transform:none} }
 body .app-gear{top:auto;bottom:max(14px,env(safe-area-inset-bottom,0px))}
 .dl a{color:var(--gold);font-weight:800}
@@ -250,8 +258,33 @@ const KINDS = {
   hero:     {name:"Heroes & tricksters",color:"#f2a074"},
   place:    {name:"Lost lands & mysteries", color:"#c9b8ff"},
   sea:      {name:"Water & sea",        color:"#7fe3d0"},
-  witch:    {name:"Witches & trials",   color:"#e58fd6"}
+  witch:    {name:"Witches & trials",   color:"#e58fd6"},
+  dark:     {name:"Dark history",       color:"#ee7070"}
 };
+/* The Lore TV series (2017), from Aaron Mahnke's podcast. The desktop app can also play the viewer's own copies. */
+const LORE_TV = "https://www.amazon.com/lore", LORE_POD = "https://www.lorepodcast.com/episodes";
+function episodeBox(d){
+  const m = /^S(\d+)E(\d+)$/.exec(d.ep || ""); if (!m) return null;
+  const box = el("div", {class:"episode"},
+    el("div", {class:"ep-head"}, el("b", null, "On screen"), " · Lore (2017), season " + m[1] + ", episode " + m[2] + ": " + d.epTitle),
+    el("div", {class:"row"},
+      el("a", {class:"btn", href:LORE_TV, target:"_blank", rel:"noopener"}, "Watch on Prime Video"),
+      el("a", {class:"btn", href:LORE_POD, target:"_blank", rel:"noopener"}, "Listen to the podcast")));
+  if (window.atlasApp && window.atlasApp.episodes) { const slot = el("div", {class:"ep-mine"}); box.append(slot); yourCopy(slot, d); }
+  return box;
+}
+async function yourCopy(slot, d){
+  let info; try { info = await window.atlasApp.episodes(); } catch (e) { return; }
+  if (!info || S.sel !== d) return;
+  slot.replaceChildren();
+  if ((info.found || []).includes(d.ep)) {
+    slot.append(el("b", null, "Your copy"), el("span", {class:"small"}, " · from " + info.dir),
+      el("video", {src:"/_episode/" + d.ep, controls:true, preload:"metadata", playsinline:true, "aria-label":"Your copy of the episode " + d.epTitle}));
+  } else {
+    slot.append(el("p", {class:"small"}, info.dir ? "Your copy of this episode isn't in " + info.dir + "." : "Your copies of the Lore episodes weren't found on this computer."),
+      el("button", {class:"btn", type:"button", onclick: async () => { const r = await window.atlasApp.chooseEpisodesFolder(); if (r) yourCopy(slot, d); }}, "Choose your episodes folder"));
+  }
+}
 const S = {all: [], filter: "all", q: "", sel: null, sample: null, tts: null, ctl: null, lastText: ""};
 const fmtYear = y => y < 0 ? Math.abs(y).toLocaleString("en") + " BCE" : y < 1000 ? y + " CE" : String(y);
 const visible = () => S.all.filter(L => (S.filter === "all" || (S.filter === "scary" ? L.scary : L.kind === S.filter)) &&
@@ -361,6 +394,7 @@ function select(d, quiet){
     el("div", {class:"first"}, el("b", null, "First written down: " + fmtYear(d.first)), " · " + d.firstText),
     el("p", {class:"summary"}, d.summary),
     d.fact ? el("div", {class:"fact"}, el("b", null, "Did you know? "), d.fact) : null,
+    d.ep ? episodeBox(d) : null,
     d.sacred ? el("div", {class:"sacred"}, "This legend belongs to a living culture or faith. We share only what is told publicly; for the full stories, listen to that community's own storytellers.") : null].filter(Boolean));
   $("hearBtn").hidden = !S.tts;
   haunt(HAUNTED.has(d.id));
