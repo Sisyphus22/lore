@@ -11,7 +11,7 @@ written down, and Claude as your storyteller.
 
 ## Features
 
-- 96 legends on a world map, with filters (including **Scary ones**) and search
+- 126 legends on a world map, with filters (including **Scary ones**) and search
 - A timeline of when each legend was first recorded, from about 4000 BCE to 1995
 - For every legend: culture, place, earliest record, the story in brief and a *Did you know?*
 - **Tell me the legend** (spooky, for children, like an old bard, or the scholar's version),
