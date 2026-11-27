@@ -65,9 +65,11 @@ h1{font-family:var(--display);font-weight:900;font-size:clamp(44px,6vw,68px);lin
 .tip{position:absolute;pointer-events:none;background:var(--cream);color:var(--ink);border:3px solid var(--ink);border-radius:10px;padding:4px 10px;font-weight:800;font-size:13.5px;box-shadow:0 3px 0 var(--ink);white-space:nowrap;z-index:3}
 .tip span{display:block;font-weight:600;font-size:12px;opacity:.75}
 
-.timeline{position:relative;margin-top:14px;border:4px solid var(--ink);border-radius:18px;background:var(--deep);box-shadow:0 5px 0 var(--ink);padding:12px 14px 6px}
+.tl-band{padding-left:max(24px,env(safe-area-inset-left,0px));padding-right:max(24px,env(safe-area-inset-right,0px))}
+@media (max-width:520px){ .tl-band{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))} }
+.timeline{position:relative;margin-top:18px;border:4px solid var(--ink);border-radius:18px;background:var(--deep);box-shadow:0 5px 0 var(--ink);padding:12px 14px 6px}
 .timeline .label{font-size:12px;letter-spacing:.12em;text-transform:uppercase;font-weight:800;color:var(--gold)}
-#tl{display:block;width:100%;height:96px}
+#tl{display:block;width:100%;height:150px}
 #tl .axis{stroke:var(--mist);stroke-width:2}
 #tl text{fill:var(--mist);font-size:11px;font-family:var(--ui);font-weight:700}
 #tl .pin{cursor:pointer}
@@ -163,7 +165,8 @@ header.hero .tag{color:var(--cream);text-shadow:0 1px 3px rgba(17,20,42,.9)}
 })();
 </script>
 
-<main class="wrap">
+<main>
+  <div class="wrap">
   <div class="chips" id="chips" role="group" aria-label="Show legends of this kind"></div>
   <div class="main">
     <section aria-label="Map and timeline">
@@ -171,10 +174,6 @@ header.hero .tag{color:var(--cream);text-shadow:0 1px 3px rgba(17,20,42,.9)}
         <svg id="map" viewBox="0 0 960 500" role="img" aria-label="World map of legends. Click a glowing marker to open its story; drag to move, scroll or use the buttons to zoom."></svg>
         <div class="mapzoom"><button class="btn" id="zin" type="button" aria-label="Zoom in">+</button><button class="btn" id="zout" type="button" aria-label="Zoom out">−</button></div>
         <div class="tip" id="tip" hidden></div>
-      </div>
-      <div class="timeline">
-        <div class="label">When each legend was first written down</div>
-        <svg id="tl" role="img" aria-label="Timeline of legends by the date each was first recorded"></svg>
       </div>
     </section>
     <aside class="story" id="story" aria-live="polite">
@@ -205,9 +204,19 @@ header.hero .tag{color:var(--cream);text-shadow:0 1px 3px rgba(17,20,42,.9)}
       </div>
     </aside>
   </div>
+  </div>
 
+  <div class="tl-band">
+    <div class="timeline">
+      <div class="label">When each legend was first written down</div>
+      <svg id="tl" role="img" aria-label="Timeline of legends by the date each was first recorded"></svg>
+    </div>
+  </div>
+
+  <div class="wrap">
   <div class="grid-head"><h2>All legends</h2><span class="small" id="count"></span></div>
   <div class="cards" id="cards"></div>
+  </div>
 </main>
 
 <footer class="wrap">
@@ -290,16 +299,18 @@ function showTip(e, d){
 }
 
 /* ---------- timeline ---------- */
-const BREAKS = [-4100, -1000, 0, 1000, 1500, 1800, 2000];
+/* Each stretch between breaks gets an equal share of the width, so the busy centuries get more room. */
+const BREAKS = [-4100, -1000, 0, 500, 1000, 1200, 1400, 1600, 1800, 1900, 2000];
 function tlScale(w){ const n = BREAKS.length - 1; return d3.scaleLinear().domain(BREAKS).range(BREAKS.map((_, i) => 16 + (w - 32) * i / n)); }
 function renderTimeline(){
-  const svg = d3.select("#tl"); const w = $("tl").clientWidth || 800, h = 96; svg.attr("viewBox", `0 0 ${w} ${h}`); svg.selectAll("*").remove();
-  const x = tlScale(w), axisY = 70;
+  const svg = d3.select("#tl"); const w = $("tl").clientWidth || 800, h = 150; svg.attr("viewBox", `0 0 ${w} ${h}`); svg.selectAll("*").remove();
+  const x = tlScale(w), axisY = 122, LANES = 9;
   svg.append("line").attr("class", "axis").attr("x1", 16).attr("x2", w - 16).attr("y1", axisY).attr("y2", axisY);
-  BREAKS.forEach(b => { svg.append("line").attr("class", "axis").attr("x1", x(b)).attr("x2", x(b)).attr("y1", axisY - 4).attr("y2", axisY + 4); svg.append("text").attr("x", x(Math.max(b, -4000))).attr("y", axisY + 18).attr("text-anchor", b === BREAKS[0] ? "start" : b === 2000 ? "end" : "middle").text(b <= -4000 ? "4000 BCE" : b === 0 ? "1 CE" : fmtYear(b)); });
+  const narrow = w < 560;
+  BREAKS.forEach((b, i) => { svg.append("line").attr("class", "axis").attr("x1", x(b)).attr("x2", x(b)).attr("y1", axisY - 4).attr("y2", axisY + 4); if (narrow && (i % 2 || i === 2) && b !== 2000) return; svg.append("text").attr("x", x(Math.max(b, -4000))).attr("y", axisY + 18).attr("text-anchor", b === BREAKS[0] ? "start" : b === 2000 ? "end" : "middle").text(b <= -4000 ? "4000 BCE" : b === 0 ? "1 CE" : fmtYear(b)); });
   const data = visible().slice().sort((a, b) => a.first - b.first);
   const lanes = []; const r = 6;
-  data.forEach(d => { const px = x(Math.max(-4000, d.first)); let lane = 0; while (lanes[lane] != null && px - lanes[lane] < r * 2 + 1) lane++; lanes[lane] = px; d._tx = px; d._ty = axisY - 12 - (lane % 5) * 12; });
+  data.forEach(d => { const px = x(Math.max(-4000, d.first)); let lane = 0; while (lane < LANES - 1 && lanes[lane] != null && px - lanes[lane] < r * 2 + 1) lane++; lanes[lane] = px; d._tx = px; d._ty = axisY - 12 - lane * 12; });
   const g = svg.append("g");
   const pins = g.selectAll(".pin").data(data, d => d.id).enter().append("g").attr("class", "pin").classed("sel", d => S.sel && d.id === S.sel.id).attr("transform", d => `translate(${d._tx},${d._ty})`).on("click", (e, d) => select(d));
   pins.append("circle").attr("r", r).attr("fill", d => KINDS[d.kind].color);
